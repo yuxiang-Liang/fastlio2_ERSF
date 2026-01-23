@@ -2,16 +2,49 @@
 # matplotlib.use('Agg')
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
+def euler_to_rotation_matrix(roll, pitch, yaw):
+    # Calculate sin and cosine values of the angles
+    cr = np.cos(roll)
+    sr = np.sin(roll)
+    cp = np.cos(pitch)
+    sp = np.sin(pitch)
+    cy = np.cos(yaw)
+    sy = np.sin(yaw)
+
+    # Define rotation matrix
+    R_roll = np.array([[1, 0, 0],
+                       [0, cr, -sr],
+                       [0, sr, cr]])
+
+    R_pitch = np.array([[cp, 0, sp],
+                        [0, 1, 0],
+                        [-sp, 0, cp]])
+
+    R_yaw = np.array([[cy, -sy, 0],
+                      [sy, cy, 0],
+                      [0, 0, 1]])
+
+    # Combine individual rotation matrices
+    R = np.dot(R_yaw, np.dot(R_pitch, R_roll))
+    print (R)
+    r = np.linalg.inv(R)
+
+    return r
 
 #######for ikfom
 fig, axs = plt.subplots(4,2)
 lab_pre = ['', 'pre-x', 'pre-y', 'pre-z']
 lab_out = ['', 'out-x', 'out-y', 'out-z']
+
+lab_point = ['', 'point-x', 'point-y', 'point-z']
 plot_ind = range(7,10)
-a_pre=np.loadtxt('mat_pre.txt')
-a_out=np.loadtxt('mat_out.txt')
-time=a_pre[:,0]
+a_fast_rs=np.loadtxt('mat_out_fast.txt')
+a_fast=np.loadtxt('fast.txt')
+a_point=np.loadtxt('point.txt')
+a_point_rs=np.loadtxt('point_rs.txt')
+time=a_fast_rs[:,0]
 axs[0,0].set_title('Attitude')
 axs[1,0].set_title('Translation')
 axs[2,0].set_title('Extrins-R')
@@ -22,14 +55,79 @@ axs[2,1].set_title('ba')
 axs[3,1].set_title('Gravity')
 for i in range(1,4):
     for j in range(8):
-        axs[j%4, j/4].plot(time, a_pre[:,i+j*3],'.-', label=lab_pre[i])
-        axs[j%4, j/4].plot(time, a_out[:,i+j*3],'.-', label=lab_out[i])
+        axs[j%4, j//4].plot(time, a_fast_rs[:,i+j*3],'.-', label=lab_pre[i])
+
+        axs[j%4, j//4].plot(time, a_fast[:,i+j*3],'.-', label=lab_out[i])
 for j in range(8):
     # axs[j].set_xlim(386,389)
-    axs[j%4, j/4].grid()
-    axs[j%4, j/4].legend()
+    axs[j%4, j//4].grid()
+    axs[j%4, j//4].legend()
 plt.grid()
 #######for ikfom#######
+
+groud_truth = pd.read_csv('groundtruth_2013-01-10.csv')
+# datax = []
+# datay = []
+# for row in groud_truth:
+#     print(row)
+#     datax.append(row[1])
+#     datay.append(row[2])
+data = groud_truth.iloc[:, 7:10].values
+# print(data)
+# datay = groud_truth.iloc[:, 8].values
+# R0_inv = euler_to_rotation_matrix(-0.029788434570233 - (1 - 0.807 / 180) * np.pi, -0.010193528558576 + 0.166 / 180 * np.pi  , -0.148727726103393 - 90.703 / 180 * np.pi)
+# R0_inv = euler_to_rotation_matrix( 0.807/180 * np.pi,   0.166/80 *np.pi  , -90.703 / 180 * np.pi)
+R0_inv = euler_to_rotation_matrix( -0.029788434570233 , -0.010193528558576 , -0.148727726103393)
+
+data_T = data.T
+for i in range(len(data_T[0])):
+    data_T[:, i] = np.dot(R0_inv  ,data_T[:, i])
+
+plt.figure(2)
+plt.plot(a_fast_rs[:, 1+3], a_fast_rs[:, 2+3], label='rs')
+plt.plot(a_fast[:, 1+3], a_fast[:, 2+3], label='fast')
+plt.plot(a_point[:, 1+3], a_point[:, 2+3], label='point')
+plt.plot(a_point_rs[:, 1+3], a_point_rs[:, 2+3], label='a_point_rs')
+plt.plot(data_T[0, :], data_T[1, :], label='true')
+# plt.plot(data[:, 0], data[:, 1], label='true')
+
+
+length = len(a_fast_rs[:,0])-1
+lentrue = len(data_T[0]) -1
+
+print("true ", data_T[:, lentrue], " rs-fast ", a_fast_rs[length, 4:7], " fast ", a_fast[length, 4:7], " point ", a_point[length, 4:7], " rs-point ", a_point_rs[length, 4:7])
+
+plt.legend()
+# print(np.cos(-0.147575680110183))
+
+def euler_to_rotation_matrix(roll, pitch, yaw):
+    # Calculate sin and cosine values of the angles
+    cr = np.cos(roll)
+    sr = np.sin(roll)
+    cp = np.cos(pitch)
+    sp = np.sin(pitch)
+    cy = np.cos(yaw)
+    sy = np.sin(yaw)
+
+    # Define rotation matrix
+    R_roll = np.array([[1, 0, 0],
+                       [0, cr, -sr],
+                       [0, sr, cr]])
+
+    R_pitch = np.array([[cp, 0, sp],
+                        [0, 1, 0],
+                        [-sp, 0, cp]])
+
+    R_yaw = np.array([[cy, -sy, 0],
+                      [sy, cy, 0],
+                      [0, 0, 1]])
+    print (R)
+    print("11111111")
+    # Combine individual rotation matrices
+    R = np.dot(R_yaw, np.dot(R_pitch, R_roll))
+    r = np.linalg.inv(R)
+    
+    return r
 
 
 #### Draw IMU data

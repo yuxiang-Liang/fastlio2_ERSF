@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <random>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <livox_ros_driver/CustomMsg.h>
@@ -121,4 +122,8 @@ class Preprocess
   double edgea, edgeb;
   double smallp_intersect, smallp_ratio;
   double vx, vy, vz;
+  
+  std::random_device seed;
+  std::ranlux48 engine;
+  std::normal_distribution<double> distrib;
 };

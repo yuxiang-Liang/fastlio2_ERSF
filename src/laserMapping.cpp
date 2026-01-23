@@ -95,6 +95,9 @@ bool   point_selected_surf[100000] = {0};
 bool   lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited;
 bool   scan_pub_en = false, dense_pub_en = false, scan_body_pub_en = false;
 
+double theta;
+bool use_theta;
+
 vector<vector<int>>  pointSearchInd_surf; 
 vector<BoxPointType> cub_needrm;
 vector<PointVector>  Nearest_Points; 
@@ -774,6 +777,8 @@ int main(int argc, char** argv)
     nh.param<double>("mapping/b_gyr_cov",b_gyr_cov,0.0001);
     nh.param<double>("mapping/b_acc_cov",b_acc_cov,0.0001);
     nh.param<double>("preprocess/blind", p_pre->blind, 0.01);
+    nh.param<double>("theta", theta, -0.0001);
+    nh.param<bool>("use_theta", use_theta, 1);
     nh.param<int>("preprocess/lidar_type", p_pre->lidar_type, AVIA);
     nh.param<int>("preprocess/scan_line", p_pre->N_SCANS, 16);
     nh.param<int>("preprocess/timestamp_unit", p_pre->time_unit, US);
@@ -786,6 +791,7 @@ int main(int argc, char** argv)
     nh.param<int>("pcd_save/interval", pcd_save_interval, -1);
     nh.param<vector<double>>("mapping/extrinsic_T", extrinT, vector<double>());
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
+
     cout<<"p_pre->lidar_type "<<p_pre->lidar_type<<endl;
     
     path.header.stamp    = ros::Time::now();
@@ -826,8 +832,8 @@ int main(int argc, char** argv)
     fp = fopen(pos_log_dir.c_str(),"w");
 
     ofstream fout_pre, fout_out, fout_dbg;
-    fout_pre.open(DEBUG_FILE_DIR("mat_pre.txt"),ios::out);
-    fout_out.open(DEBUG_FILE_DIR("mat_out.txt"),ios::out);
+    fout_pre.open(DEBUG_FILE_DIR("mat_pre_fast.txt"),ios::out);
+    fout_out.open(DEBUG_FILE_DIR("mat_out_fast.txt"),ios::out);
     fout_dbg.open(DEBUG_FILE_DIR("dbg.txt"),ios::out);
     if (fout_pre && fout_out)
         cout << "~~~~"<<ROOT_DIR<<" file opened" << endl;
@@ -894,11 +900,25 @@ int main(int argc, char** argv)
             lasermap_fov_segment();
 
             /*** downsample the feature points in a scan ***/
+            downSizeFilterSurf.setLeafSize(filter_size_surf_min, filter_size_surf_min, filter_size_surf_min);
             downSizeFilterSurf.setInputCloud(feats_undistort);
             downSizeFilterSurf.filter(*feats_down_body);
             t1 = omp_get_wtime();
             feats_down_size = feats_down_body->points.size();
             /*** initialize the map kdtree ***/
+            // double repeat_down = 0;
+            // while (feats_down_size > 1200)
+            // {
+            //     repeat_down += 0.1;
+            //     downSizeFilterSurf.setLeafSize(filter_size_surf_min + repeat_down, filter_size_surf_min + repeat_down, filter_size_surf_min + repeat_down);
+            //     downSizeFilterSurf.setInputCloud(feats_undistort);
+            //     downSizeFilterSurf.filter(*feats_down_body);
+            //     feats_down_size = feats_down_body->points.size();
+            //     // std::cout << "////////////////////  " << feats_down_size << std::endl;
+            //     // std::cout << "++++++++++++++++++++  " << repeat_down << std::endl;
+            // }
+
+
             if(ikdtree.Root_Node == nullptr)
             {
                 if(feats_down_size > 5)
@@ -950,8 +970,10 @@ int main(int argc, char** argv)
             /*** iterated state estimation ***/
             double t_update_start = omp_get_wtime();
             double solve_H_time = 0;
-            kf.update_iterated_dyn_share_modified(LASER_POINT_COV, solve_H_time);
+            kf.update_iterated_dyn_share_modified(LASER_POINT_COV, solve_H_time, theta, use_theta);
             state_point = kf.get_x();
+            
+            // std::cout << "gravity = " << state_point.grav << std::endl << std::endl;
             euler_cur = SO3ToEuler(state_point.rot);
             pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
             geoQuat.x = state_point.rot.coeffs()[0];
