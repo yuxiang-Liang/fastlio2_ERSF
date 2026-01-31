@@ -1,7 +1,9 @@
 # Fast-LIO-ERSF
 
 A robust LiDAR-inertial odometry (LIO) framework based on **Fast-LIO2**, featuring an **Extended Risk-Sensitive Filter (ERSF)** backend. This implementation is specifically designed to handle non-Gaussian noise and outliers in challenging industrial environments.
+
 Unpublished work/Preprint. Shared for community feedback and reference. Hope it helps your research!
+
 ------
 
 ## Performance Evaluation
